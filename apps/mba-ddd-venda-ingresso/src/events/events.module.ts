@@ -8,6 +8,8 @@ import {
   OrderSchema,
   PartnerSchema,
   SpotReservationSchema,
+  WaitingListSchema,
+  WaitingListEntrySchema,
 } from '../@core/events/infra/db/schemas';
 import { PartnerMysqlRepository } from '../@core/events/infra/db/repositories/partner-mysql.repository';
 import { EntityManager } from '@mikro-orm/mysql';
@@ -15,6 +17,7 @@ import { CustomerMysqlRepository } from '../@core/events/infra/db/repositories/c
 import { EventMysqlRepository } from '../@core/events/infra/db/repositories/event-mysql.repository';
 import { OrderMysqlRepository } from '../@core/events/infra/db/repositories/order-mysql.repository';
 import { SpotReservationMysqlRepository } from '../@core/events/infra/db/repositories/spot-reservation-mysql.repository';
+import { WaitingListMysqlRepository } from '../@core/events/infra/db/repositories/waiting-list-mysql.repository';
 import { PartnerService } from '../@core/events/application/partner.service';
 import { CustomerService } from '../@core/events/application/customer.service';
 import { EventService } from '../@core/events/application/event.service';
@@ -48,6 +51,8 @@ import { PartnerCreatedIntegrationEvent } from '../@core/events/domain/events/in
       EventSpotSchema,
       OrderSchema,
       SpotReservationSchema,
+      WaitingListSchema,
+      WaitingListEntrySchema,
     ]),
     ApplicationModule,
     BullModule.registerQueue({
@@ -78,6 +83,11 @@ import { PartnerCreatedIntegrationEvent } from '../@core/events/domain/events/in
     {
       provide: 'ISpotReservationRepository',
       useFactory: (em: EntityManager) => new SpotReservationMysqlRepository(em),
+      inject: [EntityManager],
+    },
+    {
+      provide: 'IWaitingListRepository',
+      useFactory: (em: EntityManager) => new WaitingListMysqlRepository(em),
       inject: [EntityManager],
     },
     {

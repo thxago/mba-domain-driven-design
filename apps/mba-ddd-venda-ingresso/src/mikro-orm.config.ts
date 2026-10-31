@@ -6,6 +6,8 @@ import {
   OrderSchema,
   PartnerSchema,
   SpotReservationSchema,
+  WaitingListSchema,
+  WaitingListEntrySchema,
 } from './@core/events/infra/db/schemas';
 import { StoredEventSchema } from './@core/stored-events/infra/db/schemas';
 
@@ -19,6 +21,8 @@ export default {
     OrderSchema,
     SpotReservationSchema,
     StoredEventSchema,
+    WaitingListSchema,
+    WaitingListEntrySchema,
   ],
   dbName: 'events',
   host: 'localhost',
