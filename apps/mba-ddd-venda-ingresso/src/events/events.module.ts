@@ -22,6 +22,8 @@ import { PartnerService } from '../@core/events/application/partner.service';
 import { CustomerService } from '../@core/events/application/customer.service';
 import { EventService } from '../@core/events/application/event.service';
 import { OrderService } from '../@core/events/application/order.service';
+import { CancelOrderService } from '../@core/events/application/cancel-order.service';
+import { IOrderRepository } from '../@core/events/domain/repositories/order-repository.interface';
 import { PaymentGateway } from '../@core/events/application/payment.gateway';
 import { IPartnerRepository } from '../@core/events/domain/repositories/partner-repository.interface';
 import { PartnersController } from './partners/partners.controller';
@@ -110,6 +112,14 @@ import { PartnerCreatedIntegrationEvent } from '../@core/events/domain/events/in
       inject: ['IEventRepository', 'IPartnerRepository', 'IUnitOfWork'],
     },
     PaymentGateway,
+    {
+      provide: CancelOrderService,
+      useFactory: (
+        orderRepo: IOrderRepository,
+        appService: ApplicationService,
+      ) => new CancelOrderService(orderRepo, appService),
+      inject: ['IOrderRepository', ApplicationService],
+    },
     {
       provide: OrderService,
       useFactory: (

@@ -76,6 +76,7 @@ export class Order extends AggregateRoot {
   toJSON() {
     return {
       id: this.id.value,
+      status: this.status,
       amount: this.amount,
       customer_id: this.customer_id.value,
       event_spot_id: this.event_spot_id.value,
