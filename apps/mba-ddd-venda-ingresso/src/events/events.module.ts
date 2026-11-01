@@ -22,6 +22,9 @@ import { PartnerService } from '../@core/events/application/partner.service';
 import { CustomerService } from '../@core/events/application/customer.service';
 import { EventService } from '../@core/events/application/event.service';
 import { OrderService } from '../@core/events/application/order.service';
+import { WaitingListService } from '../@core/events/application/waiting-list.service';
+import { IWaitingListRepository } from '../@core/events/domain/repositories/waiting-list-repository.interface';
+import { ICustomerRepository } from '../@core/events/domain/repositories/customer-repository.interface';
 import { CancelOrderService } from '../@core/events/application/cancel-order.service';
 import { IOrderRepository } from '../@core/events/domain/repositories/order-repository.interface';
 import { PaymentGateway } from '../@core/events/application/payment.gateway';
@@ -32,6 +35,7 @@ import { EventsController } from './events/events.controller';
 import { EventSectionsController } from './events/event-sections.controller';
 import { EventSpotsController } from './events/event-spots.controller';
 import { OrdersController } from './orders/orders.controller';
+import { WaitingListController } from './events/waiting-list.controller';
 import { ApplicationModule } from '../application/application.module';
 import { ApplicationService } from '../@core/common/application/application.service';
 import { DomainEventManager } from '../@core/common/domain/domain-event-manager';
@@ -109,6 +113,27 @@ import { PartnerCreatedIntegrationEvent } from '../@core/events/domain/events/in
       inject: ['ICustomerRepository', 'IUnitOfWork'],
     },
     {
+      provide: WaitingListService,
+      useFactory: (
+        waitingListRepo: IWaitingListRepository,
+        customerRepo: ICustomerRepository,
+        eventRepo: IEventRepository,
+        appService: ApplicationService,
+      ) =>
+        new WaitingListService(
+          waitingListRepo,
+          customerRepo,
+          eventRepo,
+          appService,
+        ),
+      inject: [
+        'IWaitingListRepository',
+        'ICustomerRepository',
+        'IEventRepository',
+        ApplicationService,
+      ],
+    },
+    {
       provide: EventService,
       useFactory: (eventRepo, partnerRepo, uow) =>
         new EventService(eventRepo, partnerRepo, uow),
@@ -184,6 +209,7 @@ import { PartnerCreatedIntegrationEvent } from '../@core/events/domain/events/in
     EventSectionsController,
     EventSpotsController,
     OrdersController,
+    WaitingListController,
   ],
 })
 export class EventsModule implements OnModuleInit {
