@@ -42,6 +42,9 @@ import { DomainEventManager } from '../@core/common/domain/domain-event-manager'
 import { PartnerCreated } from '../@core/events/domain/events/domain-events/partner-created.event';
 import { MyHandlerHandler } from '../@core/events/application/handlers/my-handler.handler';
 import { ReleaseSpotOnOrderCancelledHandler } from '../@core/events/application/handlers/release-spot-on-order-cancelled.handler';
+import { NotifyWaitingCustomerOnSpotReleasedHandler } from '../@core/events/application/handlers/notify-waiting-customer-on-spot-released.handler';
+import { SpotOfferedToWaitingCustomer } from '../@core/events/domain/events/domain-events/spot-offered-to-waiting-customer.event';
+import { SpotOfferedToWaitingCustomerIntegrationEvent } from '../@core/events/domain/events/integration-events/spot-offered-to-waiting-customer.int-events';
 import { IEventRepository } from '../@core/events/domain/repositories/event-repository.interface';
 import { ISpotReservationRepository } from '../@core/events/domain/repositories/spot-reservation-repository.interface';
 import { ModuleRef } from '@nestjs/core';
@@ -201,6 +204,18 @@ import { PartnerCreatedIntegrationEvent } from '../@core/events/domain/events/in
         DomainEventManager,
       ],
     },
+    {
+      provide: NotifyWaitingCustomerOnSpotReleasedHandler,
+      useFactory: (
+        waitingListRepo: IWaitingListRepository,
+        domainEventManager: DomainEventManager,
+      ) =>
+        new NotifyWaitingCustomerOnSpotReleasedHandler(
+          waitingListRepo,
+          domainEventManager,
+        ),
+      inject: ['IWaitingListRepository', DomainEventManager],
+    },
   ],
   controllers: [
     PartnersController,
@@ -241,11 +256,30 @@ export class EventsModule implements OnModuleInit {
         });
       },
     );
+    NotifyWaitingCustomerOnSpotReleasedHandler.listensTo().forEach(
+      (eventName: string) => {
+        this.domainEventManager.register(eventName, async (event) => {
+          const handler =
+            await this.moduleRef.resolve<NotifyWaitingCustomerOnSpotReleasedHandler>(
+              NotifyWaitingCustomerOnSpotReleasedHandler,
+            );
+          await handler.handle(event);
+        });
+      },
+    );
     this.domainEventManager.registerForIntegrationEvent(
       PartnerCreated.name,
       async (event) => {
         console.log('integration events');
         const integrationEvent = new PartnerCreatedIntegrationEvent(event);
+        await this.integrationEventsQueue.add(integrationEvent);
+      },
+    );
+    this.domainEventManager.registerForIntegrationEvent(
+      SpotOfferedToWaitingCustomer.name,
+      async (event: SpotOfferedToWaitingCustomer) => {
+        const integrationEvent =
+          new SpotOfferedToWaitingCustomerIntegrationEvent(event);
         await this.integrationEventsQueue.add(integrationEvent);
       },
     );
