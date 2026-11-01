@@ -21,6 +21,10 @@ import { OrderCancelled } from '../domain/events/domain-events/order-cancelled.e
 import { OrderMysqlRepository } from '../infra/db/repositories/order-mysql.repository';
 import { CancelOrderService } from './cancel-order.service';
 import { OrderService } from './order.service';
+import { ReleaseSpotOnOrderCancelledHandler } from './handlers/release-spot-on-order-cancelled.handler';
+import { EventMysqlRepository } from '../infra/db/repositories/event-mysql.repository';
+import { SpotReservationMysqlRepository } from '../infra/db/repositories/spot-reservation-mysql.repository';
+import { EventSpotReleased } from '../domain/events/domain-events/event-spot-released.event';
 
 describe('CancelOrderService and REST endpoint', () => {
   let orm: MikroORM<MySqlDriver>;
@@ -159,6 +163,55 @@ describe('CancelOrderService and REST endpoint', () => {
     expect((await orderRepo.findById(order.id)).status).toBe(
       OrderStatus.PENDING,
     );
+  });
+
+  test('releases and persists the spot through the registered cancellation reaction', async () => {
+    const handler = new ReleaseSpotOnOrderCancelledHandler(
+      new EventMysqlRepository(em),
+      new SpotReservationMysqlRepository(em),
+      manager,
+    );
+    for (const eventName of ReleaseSpotOnOrderCancelledHandler.listensTo()) {
+      manager.register(eventName, (domainEvent) => handler.handle(domainEvent));
+    }
+    const published = jest.fn();
+    manager.register(EventSpotReleased.name, published);
+
+    await service.cancel(order.id.value);
+    em.clear();
+
+    const updatedEvent = await em.findOne(Event, { id: event.id });
+    const section = updatedEvent.sections.values()[0];
+    expect(section.spots.values()[0].is_reserved).toBe(false);
+    expect(
+      updatedEvent.allowReserveSpot({
+        section_id: section.id,
+        spot_id: order.event_spot_id,
+      }),
+    ).toBe(true);
+    expect(await em.count(SpotReservation, {})).toBe(0);
+    expect((await orderRepo.findById(order.id)).status).toBe(
+      OrderStatus.CANCELLED,
+    );
+    expect(published).toHaveBeenCalledTimes(1);
+    const stored = await em.find(StoredEvent, {
+      type_name: EventSpotReleased.name,
+    });
+    expect(stored).toHaveLength(1);
+    expect(stored[0].body).toMatchObject({
+      event_id: { _value: event.id.value },
+      section_id: { _value: section.id.value },
+      spot_id: { _value: order.event_spot_id.value },
+    });
+    expect(
+      (await em.findOne(WaitingList, { id: list.id })).entries.values()[0]
+        .status,
+    ).toBe(WaitingListEntryStatus.PENDING);
+
+    await expect(service.cancel(order.id.value)).rejects.toThrow(
+      'Order already cancelled',
+    );
+    expect(published).toHaveBeenCalledTimes(1);
   });
 
   test('rejects repeated cancellation without storing another event', async () => {
