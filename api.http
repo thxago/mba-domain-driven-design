@@ -1,4 +1,5 @@
-###
+### Executar em ordem após preparar o banco e iniciar API e apps/emails.
+# As respostas capturam os IDs automaticamente no HTTP Client do IntelliJ.
 GET http://localhost:3000
 
 ###
@@ -12,8 +13,9 @@ Content-Type: application/json
     "name": "Partner 1"
 }
 
-###
-@partner_id = 076a2ae5-b4ed-438d-89fc-e1a4b42372ba
+> {%
+    client.global.set("partner_id", response.body.id);
+%}
 
 ###
 GET http://localhost:3000/customers
@@ -23,12 +25,26 @@ POST http://localhost:3000/customers
 Content-Type: application/json
 
 {
-    "name": "Customer 1",
+    "name": "Customer A",
     "cpf": "592.110.870-74"
 }
 
-###
-@customer_id = 61f0ff6e-0bb1-4635-8899-4b88ce46975b
+> {%
+    client.global.set("customer_id", response.body.id);
+%}
+
+### Cliente B: vai entrar na lista de espera.
+POST http://localhost:3000/customers
+Content-Type: application/json
+
+{
+    "name": "Customer B",
+    "cpf": "703.758.870-91"
+}
+
+> {%
+    client.global.set("waiting_customer_id", response.body.id);
+%}
 
 ###
 GET http://localhost:3000/events
@@ -44,8 +60,9 @@ Content-Type: application/json
     "partner_id": "{{partner_id}}"
 }
 
-###
-@event_id = 3181cb03-59e6-469a-9942-358b07882a72
+> {%
+    client.global.set("event_id", response.body.id);
+%}
 
 ###
 GET http://localhost:3000/events/{{event_id}}/sections
@@ -61,11 +78,13 @@ Content-Type: application/json
     "price": 200
 }
 
-###
-PUT http://localhost:3000/events/{{event_id}}/publish-all
+> {%
+    client.global.set("section_id", response.body.sections[0].id);
+    client.global.set("spot_id", response.body.sections[0].spots[0].id);
+%}
 
 ###
-@section_id = 42a5f5b1-30c5-4b2f-b9b8-84e5cc948542
+PUT http://localhost:3000/events/{{event_id}}/publish-all
 
 ###
 PUT http://localhost:3000/events/{{event_id}}/sections/{{section_id}}
@@ -80,7 +99,7 @@ Content-Type: application/json
 GET http://localhost:3000/events/{{event_id}}/sections/{{section_id}}/spots
 
 ###
-PUT http://localhost:3000/events/{{event_id}}/sections/{{section_id}}/spots/2179f4e2-b3bc-4be9-b55d-f0876f24987d
+PUT http://localhost:3000/events/{{event_id}}/sections/{{section_id}}/spots/{{spot_id}}
 Content-Type: application/json
 
 {
@@ -97,6 +116,81 @@ Content-Type: application/json
 {
     "customer_id": "{{customer_id}}",
     "section_id": "{{section_id}}",
-    "spot_id": "96298e63-5a38-4352-b97d-322259f10921",
+    "spot_id": "{{spot_id}}",
     "card_token": "tok_visa"
 }
+
+> {%
+    client.global.set("order_id", response.body.id);
+    client.test("Pedido pago", function () {
+        client.assert(response.body.status === 1, "Esperado PAID = 1");
+    });
+%}
+
+### Seção esgotada: o único lugar está reservado.
+GET http://localhost:3000/events/{{event_id}}/sections/{{section_id}}/spots
+
+> {%
+    client.test("Lugar reservado", function () {
+        client.assert(response.body[0].reserved === true, "Esperado reserved = true");
+    });
+%}
+
+### Entrar na fila com o cliente B.
+POST http://localhost:3000/events/{{event_id}}/sections/{{section_id}}/waiting-list
+Content-Type: application/json
+
+{
+    "customer_id": "{{waiting_customer_id}}"
+}
+
+> {%
+    client.test("Entrada pendente", function () {
+        client.assert(response.body.status === 0, "Esperado PENDING = 0");
+    });
+%}
+
+### Consultar a fila antes do cancelamento.
+GET http://localhost:3000/events/{{event_id}}/sections/{{section_id}}/waiting-list
+
+> {%
+    client.test("Cliente B pendente", function () {
+        client.assert(response.body.length === 1, "Esperada uma entrada");
+        client.assert(response.body[0].status === 0, "Esperado PENDING = 0");
+    });
+%}
+
+### Um único comando dispara liberação, notificação e integração.
+POST http://localhost:3000/events/{{event_id}}/orders/{{order_id}}/cancel
+
+> {%
+    client.test("Pedido cancelado", function () {
+        client.assert(response.body.status === 2, "Esperado CANCELLED = 2");
+    });
+%}
+
+### Lugar disponível novamente, sem reserva para o cliente notificado.
+GET http://localhost:3000/events/{{event_id}}/sections/{{section_id}}/spots
+
+> {%
+    client.test("Lugar liberado", function () {
+        client.assert(response.body[0].reserved === false, "Esperado reserved = false");
+    });
+%}
+
+### Cliente B notificado; verificar também o log de apps/emails.
+GET http://localhost:3000/events/{{event_id}}/sections/{{section_id}}/waiting-list
+
+> {%
+    client.test("Cliente B notificado", function () {
+        client.assert(response.body[0].customer_id === client.global.get("waiting_customer_id"), "Cliente incorreto");
+        client.assert(response.body[0].status === 1, "Esperado NOTIFIED = 1");
+    });
+%}
+
+### Consultar o pedido com seu status.
+GET http://localhost:3000/events/{{event_id}}/orders
+
+# No MySQL: SELECT type_name FROM stored_event;
+# Esperados: CustomerJoinedWaitingList, OrderCancelled,
+# EventSpotReleased e SpotOfferedToWaitingCustomer.
