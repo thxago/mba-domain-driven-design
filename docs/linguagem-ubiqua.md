@@ -17,7 +17,7 @@ Modelo desenhado antes da implementação e refinado para a entrega final, basea
 | Liberação de lugar                 | `Event.markSpotAsAvailable(spot_id)`                             | Operação da raiz que encontra a seção e desce até o spot para torná-lo não reservado, registrando o evento de liberação.                                 |
 | Reação ao cancelamento             | `ReleaseSpotOnOrderCancelledHandler`                             | Handler que localiza `Event` pelo spot do pedido, delega a liberação à raiz, remove a trava existente e publica os eventos do agregado.                  |
 | Lugar liberado                     | `EventSpotReleased`                                              | Evento de domínio de `Event` com `event_id`, `section_id` e `spot_id`, que dispara a política da lista de espera.                                        |
-| Seção esgotada                     | Disponibilidade via `Event.allowReserveSpot(...)`                | Seção sem nenhum lugar disponível para reserva; a condição é derivada da disponibilidade real, não de `total_spots_reserved`.                            |
+| Seção esgotada                     | Estado de reserva via `EventSpot.is_reserved`                    | Seção sem nenhum lugar livre; independe da publicação do evento, da seção ou dos lugares e não usa `total_spots_reserved`.                               |
 | Lista de espera                    | `WaitingList` / `WaitingListId`                                  | Agregado separado de `Event`, com uma fila por `event_id` + `section_id`; controla entradas, duplicidade pendente e ordem de notificação.                |
 | Entrada na lista                   | `WaitingListEntry` / `WaitingListEntryId`                        | Entidade filha de `WaitingList`, com `customer_id`, status e ordem de chegada, mantida na coleção da raiz via `MyCollectionFactory`.                     |
 | Entrada pendente                   | `WaitingListEntryStatus.PENDING`                                 | Estado inicial de uma entrada ainda elegível para notificação (`0` na API); impede outra entrada pendente do mesmo cliente na mesma fila.                |
@@ -60,7 +60,7 @@ As mensagens são strings simples em `Error`, preservadas exatamente como no enu
 | Cliente inexistente                        | `Customer not found`               |
 | Evento inexistente                         | `Event not found`                  |
 | Seção inexistente                          | `Section not found`                |
-| Seção com lugar disponível para reserva    | `Section is not sold out`          |
+| Seção com lugar livre, mesmo não publicado | `Section is not sold out`          |
 | Cliente com entrada pendente na mesma fila | `Customer already in waiting list` |
 
 ## Event storming

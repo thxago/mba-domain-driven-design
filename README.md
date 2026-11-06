@@ -103,7 +103,7 @@ O mecanismo didático da base foi preservado. Os handlers de domínio executam e
 
 A política apenas notifica: o lugar continua disponível para compra pelo fluxo normal, sem reserva para o cliente avisado, prioridade ou expiração. Sem fila ou pendentes, não há oferta nem erro. Uma entrada `NOTIFIED` não é notificada novamente; o cliente pode entrar novamente se não tiver outra entrada pendente na mesma fila. Não há reembolso, pagamento no cancelamento, envio real de e-mail, tratamento de concorrência, frontend, autenticação ou padronização de códigos HTTP de erro.
 
-O esgotamento é derivado de `Event.allowReserveSpot(...)`, não de `total_spots_reserved`, que a compra existente não mantém. Os novos modelos não recebem decorators de framework; usam os `EntitySchema`, custom types e `MyCollectionFactory` herdados. A abstração de coleções da base já depende de metadados do MikroORM e foi preservada; testes puros dos novos comportamentos com filhos substituem somente essa coleção por uma implementação em memória.
+O esgotamento é derivado de `EventSpot.is_reserved`, independentemente da publicação do evento, da seção ou dos lugares, não de `total_spots_reserved`, que a compra existente não mantém. `Event.allowReserveSpot(...)` continua controlando a elegibilidade para compra, que também exige publicação; essa condição não define esgotamento. Os novos modelos não recebem decorators de framework; usam os `EntitySchema`, custom types e `MyCollectionFactory` herdados. A abstração de coleções da base já depende de metadados do MikroORM e foi preservada; testes puros dos novos comportamentos com filhos substituem somente essa coleção por uma implementação em memória.
 
 ## Design estratégico
 

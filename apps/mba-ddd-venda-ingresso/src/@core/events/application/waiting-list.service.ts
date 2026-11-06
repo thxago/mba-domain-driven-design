@@ -33,12 +33,9 @@ export class WaitingListService {
         throw new Error('Section not found');
       }
 
-      const hasAvailableSpot = section.spots.values().some((spot) =>
-        event.allowReserveSpot({
-          section_id: section.id,
-          spot_id: spot.id,
-        }),
-      );
+      const hasAvailableSpot = section.spots
+        .values()
+        .some((spot) => !spot.is_reserved);
       if (hasAvailableSpot) {
         throw new Error('Section is not sold out');
       }

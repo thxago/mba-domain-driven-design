@@ -184,6 +184,35 @@ describe('WaitingListService and REST endpoints', () => {
     expect(await em.count(StoredEvent, {})).toBe(0);
   });
 
+  test.each(['event', 'section', 'spots'])(
+    'rejects a section with free spots when %s is unpublished',
+    async (unpublished) => {
+      const loaded = await em.findOne(Event, { id: event.id });
+      const section = loaded.sections.values()[0];
+      section.spots.forEach((spot) => {
+        loaded.markSpotAsAvailable(spot.id);
+        if (unpublished === 'spots') {
+          spot.unPublish();
+        }
+      });
+      if (unpublished === 'event') {
+        loaded.unPublish();
+      } else if (unpublished === 'section') {
+        section.unPublish();
+      }
+      await em.flush();
+      em.clear();
+
+      await expect(service.join(input)).rejects.toThrow(
+        'Section is not sold out',
+      );
+
+      expect(await em.count(WaitingList, {})).toBe(0);
+      expect(await em.count(WaitingListEntry, {})).toBe(0);
+      expect(await em.count(StoredEvent, {})).toBe(0);
+    },
+  );
+
   test('rejects a duplicate pending customer without adding or publishing again', async () => {
     await service.join(input);
     em.clear();
